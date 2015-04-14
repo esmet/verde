@@ -1,7 +1,10 @@
 struct verde;
 
-int verde_create(struct verde **verde);
+/* Startup verde. */
+int verde_create(struct verde **verde_p);
 
-void verde_destroy(struct verde **verde);
+/* Shutdown verde */
+void verde_destroy(struct verde **verde_p);
 
+/* Do service discovery work by polling the underlying event loop. Does not return. */
 void verde_dispatch(struct verde *verde);
