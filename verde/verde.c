@@ -59,14 +59,26 @@ get_peers_cb(int rc, const struct String_vector *strings, const void *data)
 	return;
 }
 
+static int
+verde_refresh_peers(struct verde *verde)
+{
+	const int watch = 1;
+
+	return zoo_get_children(verde->zh, VERDE_DISCOVERY_ROOT, watch, &verde->peers);
+}
+
 static void
-verde_reload_peers_async(struct verde *verde)
+verde_refresh_peers_async(struct verde *verde)
 {
 	int r;
 	const int watch = 1;
 
 	r = zoo_aget_children(verde->zh, VERDE_DISCOVERY_ROOT, watch, get_peers_cb, verde);
 	if (r != 0) {
+		/* TODO: If we get here, we won't be watching the discovery root anymore.
+		 *       That's bad. So we sould probably have this refresh on some sort
+		 *       of event timer so failures heal eventually.
+		 */
 		syslog(LOG_ERR, "Failed to get peers, error %d (%s)", r, zerror(r));
 	}
 
@@ -143,7 +155,7 @@ verde_peer_discovery_watcher(zhandle_t *zh, int type, int state, const char *pat
 	}
 
 	assert(zh == verde->zh);
-	verde_reload_peers_async(verde);
+	verde_refresh_peers_async(verde);
 
 	return;
 }
@@ -216,6 +228,7 @@ verde_register_self_event(int fd, short what, void *arg)
 int
 verde_create(struct verde **verde_p)
 {
+	int r;
 	struct verde *verde;
 	struct event *ev;
 	const struct timeval refresh_interval = { .tv_sec = 5, .tv_usec = 0 };
@@ -232,7 +245,7 @@ verde_create(struct verde **verde_p)
 	}
 
 	syslog(LOG_INFO, "Ensuring service discovery path exists (%s)", VERDE_DISCOVERY_ROOT);
-	const int r = zoo_create(verde->zh, VERDE_DISCOVERY_ROOT,
+	r = zoo_create(verde->zh, VERDE_DISCOVERY_ROOT,
 	    /* No actual data will be stored in this node. */
 	    NULL, 0,
 	    /* No safety yet. */
@@ -255,9 +268,14 @@ verde_create(struct verde **verde_p)
 	ev = event_new(verde->event_base, -1, EV_PERSIST, verde_register_self_event, verde);
 	event_add(ev, &refresh_interval);
 
-	/* Now that we have registered, load the full set of peers. This read
-	 * will setup a watch on VERDE_DISCOVERY_ROOT for new child nodes. */
-	verde_reload_peers_async(verde);
+	/* Now that we have registered, synchronously refresh the peer list.
+	 * This will setup a watch on VERDE_DISCOVERY_ROOT for new child nodes. */
+	r = verde_refresh_peers(verde);
+	if (r != 0) {
+		syslog(LOG_ERR, "Failed to get initial list of peers, error %d (%s)",
+		    r, zerror(r));
+		goto error;
+	}
 
 	/* Periodically dump the list of peers */
 	verde_log_peers(verde);

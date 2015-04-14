@@ -18,7 +18,9 @@ main(int argc, const char *argv[])
 	}
 
 	syslog(LOG_INFO, "Beginning dispatch...");
+	syslog(LOG_INFO, "---------------------");
 	verde_dispatch(verde);
+	syslog(LOG_INFO, "---------------------");
 	syslog(LOG_INFO, "Finished dispatch");
 
 out:
