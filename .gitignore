@@ -30,3 +30,6 @@
 
 # Debug files
 *.dSYM/
+
+# Cmake build directory
+build/*
