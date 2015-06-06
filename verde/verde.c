@@ -18,7 +18,7 @@ struct verde {
 	struct String_vector peers;
 };
 
-#define VERDE_DISCOVERY_ROOT "/discovery/verde"
+#define VERDE_DISCOVERY_ROOT "/verde_discovery"
 
 static void
 verde_peers_free(struct verde *verde)
@@ -235,7 +235,7 @@ verde_create(struct verde **verde_p)
 
 	verde = calloc(1, sizeof(struct verde));
 	*verde_p = NULL;
-	
+
 	verde->zh = zookeeper_init("localhost:2181", verde_peer_discovery_watcher,
 	    /* Timeout, client id, context, and flags */
 	    10 * 1000, NULL, verde, 0);
@@ -284,8 +284,8 @@ verde_create(struct verde **verde_p)
 
 	*verde_p = verde;
 	return 0;
-error:
 
+error:
 	verde_destroy(verde_p);
 	return -1;
 }
@@ -296,6 +296,10 @@ verde_destroy(struct verde **verde_p)
 	struct verde *verde;
 
 	verde = *verde_p;
+	if (verde == NULL) {
+		return;
+	}
+
 	verde_peers_free(verde);
 
 	if (verde->zh != NULL) {
